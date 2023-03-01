@@ -26,6 +26,6 @@ func main() {
 	} else if *topo == 2 {
 		topologies.BoundedQueue(*lambda, *mu, *duration, *bufferSize)
 	} else {
-		panic("Unknown topology")
+		panic("..Unknown topology..")
 	}
 }
