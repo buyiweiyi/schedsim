@@ -5,6 +5,7 @@ import (
 
 	"github.com/epfl-dcsl/schedsim/blocks"
 	"github.com/epfl-dcsl/schedsim/engine"
+	"github.com/epfl-dcsl/schedsim/global"
 )
 
 func BoundedQueue(lambda, mu, duration float64, bufferSize int) {
@@ -22,7 +23,7 @@ func BoundedQueue(lambda, mu, duration float64, bufferSize int) {
 
 	// Add generator
 	var g blocks.Generator
-	g = blocks.NewMDRandGenerator(lambda, 1/mu)
+	g = blocks.NewMDRandGenerator(lambda, 1/mu, 0)
 
 	g.SetCreator(&blocks.ColoredReqCreator{})
 
@@ -47,6 +48,6 @@ func BoundedQueue(lambda, mu, duration float64, bufferSize int) {
 	// Register the generator
 	engine.RegisterActor(g)
 
-	fmt.Printf("Cores:%v\tservice_rate:%v\tinterarrival_rate:%v\n", cores, mu, lambda)
+	fmt.Printf("Cores:%v\tservice_rate:%v\tinterarrival_rate:%v\n", global.Cores, mu, lambda)
 	engine.Run(duration)
 }

@@ -3,6 +3,7 @@ package engine
 import (
 	"container/heap"
 	"container/list"
+	"fmt"
 )
 
 var mdl *model
@@ -22,6 +23,7 @@ type ActorInterface interface {
 type ReqInterface interface {
 	GetDelay() float64
 	GetServiceTime() float64
+	GetTargetAppli() int
 	SubServiceTime(t float64)
 }
 
@@ -42,12 +44,15 @@ type timerEventInterface interface {
 	getTime() float64
 	setIdx(idx int)
 	getChannel() chan int
+	getEventType() int
+	setEventType(EventType int)
 }
 
 type timerEvent struct {
-	time     float64
-	wakeUpCh chan int
-	idx      int
+	time      float64
+	wakeUpCh  chan int
+	idx       int
+	eventType int
 }
 
 func (te *timerEvent) getTime() float64 {
@@ -60,6 +65,14 @@ func (te *timerEvent) setIdx(idx int) {
 
 func (te *timerEvent) getChannel() chan int {
 	return te.wakeUpCh
+}
+
+func (te *timerEvent) getEventType() int {
+	return te.eventType
+}
+
+func (te *timerEvent) setEventType(EventType int) {
+	te.eventType = EventType
 }
 
 type blockEventInterface interface {
@@ -119,7 +132,7 @@ type model struct {
 
 func newModel() *model {
 	m := &model{}
-	m.eventChan = make(chan interface{})
+	m.eventChan = make(chan interface{}, 1000)
 	m.pq = make(priorityQueue, 0)
 	m.queues = make(map[QueueInterface]bool)
 	m.blockedInQueues = make(map[QueueInterface]*list.List)
@@ -170,6 +183,9 @@ func (m *model) run(threshold float64) {
 	for i := 0; i < m.actorCount; i++ {
 		m.waitActor()
 	}
+	//var test_count = 0
+
+	var log_ServiceTime []int
 
 	//all actors started
 	for m.time < threshold {
@@ -207,17 +223,37 @@ func (m *model) run(threshold float64) {
 		m.time = e.getTime()
 
 		// if it's linked deactivate the blocked requests
+		if _, ok := e.(*timerEvent); ok {
+			//fmt.Println("event type:", e.getEventType())
+			if e.getEventType() == 10 {
+				log_ServiceTime = append(log_ServiceTime, 1)
+				//fmt.Println("event resolved:", e.getTime())
+
+				//test_count += 1
+			}
+
+		}
+		// if it's linked deactivate the blocked requests
 		if linkedE, ok := e.(*linkedEvent); ok {
 			linkedE.blockEvent.deactivateReplicas()
 		}
 		e.getChannel() <- 1
-
+		//
+		/*
+			fmt.Println("Preparing to output result 0:", test_count)
+			if test_count >= 4 {
+				fmt.Println("Preparing to output result 1:")
+				break
+			}*/
 		// wait till process adds event or blocks in queue
 		m.waitActor()
+
 	}
+	fmt.Println("Preparing to output result:")
 	for _, s := range m.bookkeeping {
 		s.PrintStats()
 	}
+	//os.Exit(0)
 }
 
 // InitSim initialises the simulation

@@ -2,7 +2,7 @@ package blocks
 
 import (
 	"container/list"
-	//	"fmt"
+	"fmt"
 
 	"github.com/epfl-dcsl/schedsim/engine"
 )
@@ -40,7 +40,8 @@ type RTCProcessor struct {
 func (p *RTCProcessor) Run() {
 	for {
 		req := p.ReadInQueue()
-		p.Wait(req.GetServiceTime() + p.ctxCost)
+		//fmt.Printf("Selected topology: %f\n", p.ctxCost)
+		p.Wait(req.GetServiceTime()+p.ctxCost, 10)
 		if monitorReq, ok := req.(*MonitorReq); ok {
 			monitorReq.finalLength = p.GetInQueueLen(0)
 		}
@@ -180,6 +181,56 @@ func (p *BoundedProcessor) Run() {
 		} else {
 			p.reqDrain.TerminateReq(req)
 		}
+	}
+}
+
+type PackageProcessor struct {
+	genericProcessor
+	DealSpeed float64
+}
+
+func NetworkManager(DealSpeed float64) *PackageProcessor {
+	return &PackageProcessor{DealSpeed: DealSpeed}
+}
+
+// Run is the main processor loop
+func (p *PackageProcessor) Run() {
+	for {
+
+		req, _ := p.ReadInQueuesRand()
+
+		//fmt.Printf("Selected target: %d\n", req.GetTargetAppli())
+		TargetAppli := req.GetTargetAppli()
+		p.Wait(1 / p.DealSpeed)
+		//qIdx := rand.Intn(p.GetOutQueueCount())
+		p.WriteOutQueueI(req, TargetAppli)
+
+	}
+}
+
+type SimpleTestPackageProcessor struct {
+	genericProcessor
+	DealSpeed float64
+}
+
+func SimpleTestNetworkManager(DealSpeed float64) *SimpleTestPackageProcessor {
+	return &SimpleTestPackageProcessor{DealSpeed: DealSpeed}
+}
+
+// Run is the main processor loop
+func (p *SimpleTestPackageProcessor) Run() {
+	//var count = 0
+	for {
+
+		count += 1
+		req, _ := p.ReadInQueuesRand()
+		fmt.Printf("InitTime: %.4f\n", req.GetDelay())
+		//fmt.Printf("Selected target: %d\n", req.GetTargetAppli())
+		TargetAppli := req.GetTargetAppli()
+		p.Wait(1/p.DealSpeed, 5)
+		//qIdx := rand.Intn(p.GetOutQueueCount())
+		p.WriteOutQueueI(req, TargetAppli)
+
 	}
 }
 

@@ -1,5 +1,5 @@
 package topologies
 
 const (
-	cores = 1
+// Cores_unused = 4 move this parameter to global.go
 )

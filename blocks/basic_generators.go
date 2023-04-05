@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/epfl-dcsl/schedsim/engine"
+	"github.com/epfl-dcsl/schedsim/global"
 )
 
 // Generator interface describes how a generator behaves when describing
@@ -16,9 +17,10 @@ type Generator interface {
 
 type genericGenerator struct {
 	engine.Actor
-	Creator     ReqCreator
-	ServiceTime randDist
-	WaitTime    randDist
+	Creator           ReqCreator
+	ServiceTime       randDist
+	WaitTime          randDist
+	TargetApplication int
 }
 
 func (g *genericGenerator) SetCreator(rc ReqCreator) {
@@ -29,16 +31,108 @@ type randGenerator struct {
 	genericGenerator
 }
 
+/* // for one generator
 func (g *randGenerator) Run() {
+	//var test_count = 0
+
+	var test_List []int
+
+	test_List = append(test_List, 0)
+	test_List = append(test_List, 1)
+	test_List = append(test_List, 2)
+	test_List = append(test_List, 3)
+
 	for {
-		req := g.Creator.NewRequest(g.ServiceTime.getRand())
-		qIdx := rand.Intn(g.GetOutQueueCount())
+		tarAppli := rand.Intn(global.Cores)
+
+		//tarAppli := test_List[test_count]
+
+		service_time := g.ServiceTime.getRand()
+		//fmt.Println("test_ service time:", service_time)
+		serviceTypeRandom := rand.Float64()
+		serviceType := -1
+		if serviceTypeRandom < global.WriteRate {
+			serviceType = 1 //Write Operation
+
+			minRand := 5
+			maxRand := 15
+			randomInt := rand.Intn(maxRand-minRand+1) + minRand
+			service_time = service_time * float64(randomInt)
+		} else {
+			serviceType = 0 //Read Operation
+		}
+		req := g.Creator.NewRequest(service_time, tarAppli, serviceType)
+		//qIdx := rand.Intn(g.GetOutQueueCount())
+		qIdx := tarAppli % g.GetOutQueueCount()
 		if monitorReq, ok := req.(*MonitorReq); ok {
 			monitorReq.initLength = g.GetAllOutQueueLens()[qIdx]
 		}
+		global.MutexForGenerator[qIdx].Lock()
 		g.WriteOutQueueI(req, qIdx)
-		g.Wait(g.WaitTime.getRand())
+		global.MutexForGenerator[qIdx].Unlock()
+		waitTime := g.WaitTime.getRand()
+		//fmt.Println("test_ WaitTime time:", waitTime)
+
+			//test_count += 1
+			//if test_count >= 4 {
+			//	break
+			//}
+		g.Wait(waitTime)
+
 	}
+
+}*/
+
+// the generator we use
+func (g *randGenerator) Run() {
+	//var test_count = 0
+	/*
+		var test_List []int
+
+		test_List = append(test_List, 0)
+		test_List = append(test_List, 1)
+		test_List = append(test_List, 2)
+		test_List = append(test_List, 3)
+	*/
+	for {
+		tarAppli := g.TargetApplication
+
+		//tarAppli := test_List[test_count]
+
+		service_time := g.ServiceTime.getRand()
+		//fmt.Println("test_ service time:", service_time)
+		serviceTypeRandom := rand.Float64()
+		serviceType := -1
+		if serviceTypeRandom < global.WriteRate {
+			serviceType = 1 //Write Operation
+
+			minRand := 5
+			maxRand := 15
+			randomInt := rand.Intn(maxRand-minRand+1) + minRand
+			service_time = service_time * float64(randomInt)
+		} else {
+			serviceType = 0 //Read Operation
+		}
+		req := g.Creator.NewRequest(service_time, tarAppli, serviceType)
+		//qIdx := rand.Intn(g.GetOutQueueCount())
+		qIdx := 0 //
+		if monitorReq, ok := req.(*MonitorReq); ok {
+			monitorReq.initLength = g.GetAllOutQueueLens()[qIdx]
+		}
+		global.MutexForGenerator[qIdx].Lock()
+		g.WriteOutQueueI(req, 0)
+		global.MutexForGenerator[qIdx].Unlock()
+		waitTime := g.WaitTime.getRand()
+		//fmt.Println("test_ WaitTime time:", waitTime)
+
+		//test_count += 1
+		//if test_count >= 4 {
+		//	break
+		//}
+		g.Wait(waitTime)
+
+	}
+
 }
 
 type rRGenerator struct {
@@ -47,7 +141,21 @@ type rRGenerator struct {
 
 func (g *rRGenerator) Run() {
 	for count := 0; ; count++ {
-		req := g.Creator.NewRequest(g.ServiceTime.getRand())
+		tarAppli := rand.Intn(global.Cores)
+		service_time := g.ServiceTime.getRand()
+		serviceTypeRandom := rand.Float64()
+		serviceType := -1
+		if serviceTypeRandom < global.WriteRate {
+			serviceType = 1 //Write Operation
+
+			minRand := 5
+			maxRand := 15
+			randomInt := rand.Intn(maxRand-minRand+1) + minRand
+			service_time = service_time * float64(randomInt)
+		} else {
+			serviceType = 0 //Read Operation
+		}
+		req := g.Creator.NewRequest(service_time, tarAppli, serviceType)
 		g.WriteOutQueueI(req, count%g.GetOutQueueCount())
 		g.Wait(g.WaitTime.getRand())
 	}
@@ -90,13 +198,15 @@ type MDRandGenerator struct {
 }
 
 // NewMDRandGenerator returns a MDRandGenerator
-func NewMDRandGenerator(waitLambda float64, serviceTime float64) *MDRandGenerator {
+func NewMDRandGenerator(waitLambda float64, serviceTime float64, targetApplication int) *MDRandGenerator {
 	// Seed with time
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	g := &MDRandGenerator{}
 	g.WaitTime = newExponDistr(waitLambda)
+
 	g.ServiceTime = newDeterministicDistr(serviceTime)
+	g.TargetApplication = targetApplication
 	return g
 }
 
@@ -124,17 +234,19 @@ type MMRandGenerator struct {
 }
 
 // NewMMRandGenerator returns a MMRandGenerator
-func NewMMRandGenerator(waitLambda float64, serviceMu float64) *MMRandGenerator {
+func NewMMRandGenerator(waitLambda float64, serviceMu float64, targetApplication int) *MMRandGenerator {
 	// Seed with time
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	g := &MMRandGenerator{}
+	//fmt.Print("using NewMMRandGenerator")
 	g.ServiceTime = newExponDistr(serviceMu)
 	g.WaitTime = newExponDistr(waitLambda)
+	g.TargetApplication = targetApplication
 	return g
 }
 
-//MLNGenerator is exponential waiting time lognormal service time generator
+// MLNGenerator is exponential waiting time lognormal service time generator
 // If multiple queues they are fed round robin
 type MLNGenerator struct {
 	rRGenerator

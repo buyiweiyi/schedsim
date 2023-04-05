@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+
+	"github.com/epfl-dcsl/schedsim/global"
 )
 
 // PBGenerator implements a playback generator for given service times.
@@ -47,7 +49,21 @@ func (g *PBGenerator) Run() {
 		i := rand.Intn(g.cpuCount)
 		j := rand.Intn(len(g.sTimes[i]))
 		serviceTime := g.sTimes[i][j]
-		req := g.Creator.NewRequest(float64(serviceTime))
+		tarAppli := rand.Intn(global.Cores)
+		//fmt.Println("test_ service time:", service_time)
+		serviceTypeRandom := rand.Float64()
+		serviceType := -1
+		if serviceTypeRandom < global.WriteRate {
+			serviceType = 1 //Write Operation
+
+			minRand := 5
+			maxRand := 15
+			randomInt := rand.Intn(maxRand-minRand+1) + minRand
+			serviceTime = serviceTime * randomInt
+		} else {
+			serviceType = 0 //Read Operation
+		}
+		req := g.Creator.NewRequest(float64(serviceTime), tarAppli, serviceType)
 		g.WriteOutQueueI(req, i)
 		g.Wait(g.WaitTime.getRand())
 	}

@@ -70,9 +70,15 @@ func (a *Actor) GetInQueueCount() int {
 }
 
 // Wait blocks the actor for a specific duration d
-func (a *Actor) Wait(d float64) {
+func (a *Actor) Wait(d float64, EventType ...int) {
 	e := timerEvent{time: d + mdl.getTime(), wakeUpCh: a.wakeUpCh}
+	for _, number := range EventType {
+		e.setEventType(number)
+		break
+	}
+	//global.MutexChanLock.Lock()
 	a.toModel <- e
+	//global.MutexChanLock.Unlock()
 	<-a.wakeUpCh // block
 }
 
@@ -124,7 +130,7 @@ func (a *Actor) ReadInQueueI(idx int) ReqInterface {
 	if a.inQueues[idx].Len() > 0 {
 		return a.inQueues[idx].Dequeue()
 	}
-
+	//fmt.Printf("qinIdx3:%d", idx)
 	bEvent := blockEvent{wakeUpCh: a.wakeUpCh, queues: a.inQueues}
 	a.toModel <- bEvent
 	<-a.wakeUpCh

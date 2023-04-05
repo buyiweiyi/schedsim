@@ -3,9 +3,11 @@ package blocks
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 
 	"github.com/epfl-dcsl/schedsim/engine"
+	"github.com/epfl-dcsl/schedsim/global"
 )
 
 const (
@@ -74,18 +76,29 @@ func (k *AllKeeper) getPercentiles() map[float64]float64 {
 // PrintStats prints the collected statistics at the end of the similation.
 // This is called by the model
 func (k *AllKeeper) PrintStats() {
+
 	fmt.Printf("Stats collector: %v\n", k.name)
 	fmt.Printf("Count\tStolen\tAVG\tSTDDev\t50th\t90th\t95th\t99th\tReqs/time_unit\n")
 	fmt.Printf("%v\t%v\t%v\t%v\t", len(k.items), k.stolenCount, k.avg(), k.std())
+	file, _ := os.Create(global.Filename)
+
+	//file, _ := os.OpenFile(global.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	fmt.Fprintf(file, "%d\t%d\t%.4f\t%.4f\t", len(k.items), k.stolenCount, k.avg(), k.std())
 
 	vals := []float64{0.5, 0.9, 0.95, 0.99}
 	if len(k.items) > 0 {
 		percentiles := k.getPercentiles()
 		for _, v := range vals {
 			fmt.Printf("%v\t", percentiles[v])
+			fmt.Fprintf(file, "%v\t", percentiles[v])
 		}
 	}
 	fmt.Printf("%v\n", float64(len(k.items))/engine.GetTime())
+	fmt.Fprintf(file, "%v\n", float64(len(k.items))/engine.GetTime())
+	for _, item := range k.items {
+		fmt.Fprintf(file, "%.4f\n", item)
+	}
+	file.Close()
 }
 
 // MonitorKeeper keeps statistics about queue lengths
@@ -171,7 +184,7 @@ func (hdr *histogram) stddev() float64 {
 	return math.Sqrt(squareAvg - mean*mean)
 }
 
-//FIXME: I assume that in every bucket there will be max one percentile
+// FIXME: I assume that in every bucket there will be max one percentile
 func (hdr *histogram) getPercentiles() map[float64]float64 {
 	accum := make([]int, bUCKETCOUNT)
 	res := map[float64]float64{}

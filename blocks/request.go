@@ -10,6 +10,8 @@ import (
 type Request struct {
 	InitTime    float64
 	ServiceTime float64
+	TargetAppli int
+	ReqType     int
 }
 
 // GetDelay returns the request latency from the time it was sent till the time
@@ -21,6 +23,11 @@ func (r Request) GetDelay() float64 {
 // GetServiceTime returns the request service time
 func (r Request) GetServiceTime() float64 {
 	return r.ServiceTime
+}
+
+// GetServiceTime returns the request service time
+func (r Request) GetTargetAppli() int {
+	return r.TargetAppli
 }
 
 // SubServiceTime reduces service time by t
@@ -56,22 +63,22 @@ type ColoredReq struct {
 
 // ReqCreator is a used by generators to create the appropriate type of requests
 type ReqCreator interface {
-	NewRequest(serviceTime float64) engine.ReqInterface
+	NewRequest(serviceTime float64, TargetAppli int, ReqType int) engine.ReqInterface
 }
 
 // SimpleReqCreator creates structs of type Request
 type SimpleReqCreator struct{}
 
 // NewRequest returns a new Request struct
-func (rc SimpleReqCreator) NewRequest(serviceTime float64) engine.ReqInterface {
-	return &Request{InitTime: engine.GetTime(), ServiceTime: serviceTime}
+func (rc SimpleReqCreator) NewRequest(serviceTime float64, TargetAppli int, ReqType int) engine.ReqInterface {
+	return &Request{InitTime: engine.GetTime(), ServiceTime: serviceTime, TargetAppli: TargetAppli}
 }
 
 // StealableReqCreator creates structs of type StealableReq
 type StealableReqCreator struct{}
 
 // NewRequest returns a new StealableReq struct
-func (rc StealableReqCreator) NewRequest(serviceTime float64) engine.ReqInterface {
+func (rc StealableReqCreator) NewRequest(serviceTime float64, TargetAppli int, ReqType int) engine.ReqInterface {
 	return &StealableReq{Request{InitTime: engine.GetTime(), ServiceTime: serviceTime}, false}
 }
 
@@ -79,12 +86,12 @@ func (rc StealableReqCreator) NewRequest(serviceTime float64) engine.ReqInterfac
 type MonitorReqCreator struct{}
 
 // NewRequest returns a new MonitorReq struct
-func (rc MonitorReqCreator) NewRequest(serviceTime float64) engine.ReqInterface {
+func (rc MonitorReqCreator) NewRequest(serviceTime float64, TargetAppli int, ReqType int) engine.ReqInterface {
 	return &MonitorReq{Request{InitTime: engine.GetTime(), ServiceTime: serviceTime}, 0, 0}
 }
 
 type ColoredReqCreator struct{}
 
-func (rc ColoredReqCreator) NewRequest(serviceTime float64) engine.ReqInterface {
+func (rc ColoredReqCreator) NewRequest(serviceTime float64, TargetAppli int, ReqType int) engine.ReqInterface {
 	return &ColoredReq{Request{InitTime: engine.GetTime(), ServiceTime: serviceTime}, rand.Int() % 2}
 }
